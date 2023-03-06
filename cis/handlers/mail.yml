@@ -1,0 +1,4 @@
+- name: Reload modprobe configuration
+  systemd:
+    name: systemd-modules-load
+    state: restarted

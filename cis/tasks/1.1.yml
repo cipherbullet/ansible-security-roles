@@ -1,0 +1,243 @@
+# Initial Setup
+# Items in this section are advised for all systems, but may be difficult or require extensive preparation after the initial setup of the system
+
+
+# Section 1.1 - File System configuration
+# Module 1.1.1 - Disable unused filesystems
+# Task 1.1.1.1-7
+- name: 1.1.1.1-7 - Blacklist "{{ item }}" kernel module
+  become: true
+  lineinfile:
+    path: /etc/modprobe.d/blacklist.conf
+    line: "blacklist {{ item }}"
+  loop:
+    - cramfs
+    - freevxfs
+    - jffs2
+    - hfs
+    - hfsplus
+    - squashfs
+    - udf
+  notify: Reload modprobe configuration
+
+
+# Module 1.1.2 - Ensure /tmp is configured
+- name: 1.1.2 - Get mount information for /
+  shell: "df --output=source / | sed 1d"
+  register: root_mount_info
+  changed_when: false
+  failed_when: root_mount_info.rc != 0
+
+- name: 1.1.2 - Get mount information for /tmp
+  shell: "df --output=source /tmp | sed 1d"
+  register: tmp_mount_info
+  changed_when: false
+  failed_when: tmp_mount_info.rc != 0
+
+- name: 1.1.2 - Check if /tmp is on a separate disk or partition
+  register: tmp_mount_check
+  debug:
+    msg: "/tmp is {{ 'not ' if tmp_mount_info.stdout == root_mount_info.stdout else '' }}on a separate disk or partition"
+  when: tmp_mount_info.rc == 0
+  failed_when: tmp_mount_info.stdout == root_mount_info.stdout
+  changed_when: false
+
+# Module 1.1.3-5 - Ensure nodev, nosuid and noexec options for /tmp
+- name: 1.1.3-5 - Set nodev,nosuid,noexec option for /tmp Partition
+  mount:
+    name: "/tmp"
+    src: "{{ item.device }}"
+    state: "mounted"
+    fstype: "{{ item.fstype }}"
+    opts: "mode=1777,strictatime,nodev,nosuid,noexec"
+  when: tmp_mount_check is not failed and item.mount == "/tmp"
+  loop: "{{ ansible_mounts }}"
+
+# Module 1.1.6 - Ensure /dev/shm is configured
+- name: 1.1.6 - Get mount information for /dev/shm
+  shell: "df --output=source /dev/shm | sed 1d"
+  register: shm_mount_info
+  changed_when: false
+  failed_when: shm_mount_info.rc != 0
+
+- name: 1.1.6 - Check if /dev/shm is on a separate disk or partition
+  register: shm_mount_check
+  debug:
+    msg: "/dev/shm is {{ 'not ' if shm_mount_info.stdout == root_mount_info.stdout else '' }}on a separate disk or partition"
+  when: shm_mount_info.rc == 0
+  failed_when: shm_mount_info.stdout == root_mount_info.stdout
+  changed_when: false
+
+# Module 1.1.7-9 - Ensure nodev, nosuid and noexec options for /tmp
+- name: 1.1.7-9 - Set nodev,nosuid,noexec option for /dev/shm Partition
+  mount:
+    name: "/dev/shm"
+    src: "{{ item.device }}"
+    state: "mounted"
+    fstype: "{{ item.fstype }}"
+    opts: "mode=1777,strictatime,nodev,nosuid,noexec"
+  when: shm_mount_check is not failed and item.mount == "/dev/shm"
+  loop: "{{ ansible_mounts }}"
+
+
+# Module 1.1.10 - Ensure /var is configured
+- name: 1.1.10 - Get mount information for /var
+  shell: "df --output=source /var | sed 1d"
+  register: var_mount_info
+  changed_when: false
+  failed_when: var_mount_info.rc != 0
+
+- name: 1.1.10 - Check if /var is on a separate disk or partition
+  register: var_mount_check
+  debug:
+    msg: "/var is {{ 'not ' if var_mount_info.stdout == root_mount_info.stdout else '' }}on a separate disk or partition"
+  when: var_mount_info.rc == 0
+  failed_when: var_mount_info.stdout == root_mount_info.stdout
+  changed_when: false
+  ignore_errors: true
+
+# Module 1.1.11 - Ensure /var/tmp is configured
+- name: 1.1.11 - Get mount information for /var/tmp
+  shell: "df --output=source /var/tmp | sed 1d"
+  register: vartmp_mount_info
+  changed_when: false
+  failed_when: vartmp_mount_info.rc != 0
+
+- name: 1.1.11 - Check if /var/tmp is on a separate disk or partition
+  register: vartmp_mount_check
+  debug:
+    msg: "/var/tmp is {{ 'not ' if vartmp_mount_info.stdout == var_mount_info.stdout else '' }}on a separate disk or partition"
+  when: vartmp_mount_info.rc == 0
+  failed_when: vartmp_mount_info.stdout == root_mount_info.stdout or vartmp_mount_info.stdout == var_mount_info.stdout
+  changed_when: false
+
+# Module 1.1.12-14 - Ensure nodev, nosuid and noexec options for /var/tmp
+- name: 1.1.12-14 - Set nodev,nosuid,noexec option for /var/tmp Partition
+  mount:
+    name: "/var/tmp"
+    src: "{{ item.device }}"
+    state: "mounted"
+    fstype: "{{ item.fstype }}"
+    opts: "mode=1777,strictatime,nodev,nosuid,noexec"
+  when: vartmp_mount_check is not failed and item.mount == "/var/tmp"
+  loop: "{{ ansible_mounts }}"
+
+# Module 1.1.15 - Ensure /var/log is configured
+- name: 1.1.15 - Get mount information for /var/log
+  shell: "df --output=source /var/log | sed 1d"
+  register: varlog_mount_info
+  changed_when: false
+  failed_when: varlog_mount_info.rc != 0
+
+- name: 1.1.15 - Check if /var/log is on a separate disk or partition
+  register: varlog_mount_check
+  debug:
+    msg: "/var/log is {{ 'not ' if varlog_mount_info.stdout == var_mount_info.stdout else '' }}on a separate disk or partition"
+  when: varlog_mount_info.rc == 0
+  failed_when: varlog_mount_info.stdout == root_mount_info.stdout or varlog_mount_info.stdout == var_mount_info.stdout
+  changed_when: false
+
+
+# Module 1.1.16 - Ensure /var/log/audit is configured
+- name: 1.1.16 - Get mount information for /var/log/audit
+  shell: "df --output=source /var/log/audit | sed 1d"
+  register: varlogaudit_mount_info
+  changed_when: false
+  failed_when: varlogaudit_mount_info.rc != 0
+
+- name: 1.1.16 - Check if /var/log/audit is on a separate disk or partition
+  register: varlogaudit_mount_check
+  debug:
+    msg: "/var/log/audit is {{ 'not ' if varlogaudit_mount_info.stdout == var_mount_info.stdout else '' }}on a separate disk or partition"
+  when: varlogaudit_mount_info.rc == 0
+  failed_when: varlogaudit_mount_info.stdout == root_mount_info.stdout or varlogaudit_mount_info.stdout == var_mount_info.stdout
+  changed_when: false
+
+# Module 1.1.17 - Ensure /home is configured
+- name: 1.1.17 - Get mount information for /home
+  shell: "df --output=source /home | sed 1d"
+  register: home_mount_info
+  changed_when: false
+  failed_when: home_mount_info.rc != 0
+
+- name: 1.1.17 - Check if /home is on a separate disk or partition
+  register: home_mount_check
+  debug:
+    msg: "/home is {{ 'not ' if home_mount_info.stdout == root_mount_info.stdout else '' }}on a separate disk or partition"
+  when: home_mount_info.rc == 0
+  failed_when: home_mount_info.stdout == root_mount_info.stdout
+  changed_when: false
+
+# Module 1.1.18 - Ensure nodev option for /home
+- name: 1.1.18 - Set nodev option for /home Partition
+  mount:
+    name: "/home"
+    src: "{{ item.device }}"
+    state: "mounted"
+    opts: "nodev"
+  when: home_mount_check is not failed and item.mount == "/home"
+  loop: "{{ ansible_mounts }}"
+
+
+
+# Module 1.1.19-21 - Ensure nodev, nosuid and noexec options for removable medias
+- name: 1.1.19-21 - List all block devices
+  shell: lsblk -n -o NAME,TYPE | awk '$2=="disk"{print $1}'
+  register: block_devices
+
+- name: 1.1.19-21 - Get device information
+  shell: udevadm info --query=all --name=/dev/{{ item }}
+  register: device_info
+  with_items: "{{ block_devices.stdout_lines }}"
+
+- name: 1.1.19-21 - Set facts for removable devices
+  set_fact:
+    removable_devices: "{{ removable_devices|default([]) + [item.item] }}"
+  with_items: "{{ device_info.results }}"
+  when: "'ID_BUS=usb' in item.stdout"
+
+- name: 1.1.19-21 - Ensure nodev option set on removable media partitions
+  mount:
+    name: "/mnt/{{ item }}"
+    src: "/dev/{{ item }}"
+    fstype: auto
+    opts: "nodev,nosuid,noexec"
+    state: "mounted"
+  when: home_mount_check is not failed and item.mount == "/home"
+  loop: "{{ removable_devices }}"
+
+
+# Module 1.1.22 - Ensure Sticky bit is set on all world-writable dorectories
+- name: 1.1.22 - Find all world-writable directories
+  find:
+    paths: /
+    file_type: directory
+    writable: yes
+    world_readable: yes
+  register: writable_dirs
+
+- name: 1.1.22 - Ensure stiky bit is set on all world-writable directories
+  file:
+    path: "{{ item.path }}"
+    mode: "o+t"
+  with_items: "{{ writable_dirs.files }}"
+
+# Module 1.1.23 - Disable Automounting
+- name: 1.1.23 - Stop and disable autofs service
+  service:
+    name: autofs
+    state: stopped
+    enabled: no
+
+
+# Module 1.1.24 - Disable USB Storage
+- name: 1.1.24 - Blacklist usb-storage kernel module
+  lineinfile:
+    path: /etc/modprobe.d/blacklist.conf
+    line: "blacklist usb-storage"
+  become: true
+- name: 1.1.24 - Unload usb-storage kernel module
+  modprobe:
+    name: usb-storage
+    state: absent
+  become: true
