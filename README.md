@@ -1,7 +1,3 @@
----
-title: "Ansible Security Roles"
----
-
 # Ansible Security Roles
 
 This repository contains a collection of Ansible roles that can be used to perform security-related tasks on servers. These roles can help you automate the process of securing your servers and ensure that your infrastructure is always compliant with industry-standard security benchmarks.
